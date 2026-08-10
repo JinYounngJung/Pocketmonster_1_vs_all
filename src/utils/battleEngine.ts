@@ -13,6 +13,10 @@ export function getStageMultiplier(stage: number): number {
 
 export function getEffectiveSpeed(pokemon: PokemonData): number {
   let speed = pokemon.stats.speed * getStageMultiplier(pokemon.statStages.speed);
+  // Choice Scarf item boosts Speed by 50%
+  if (pokemon.item === 'choice_scarf' && !pokemon.fainted) {
+    speed *= 1.5;
+  }
   if (pokemon.status === 'paralysis') {
     speed *= 0.5;
   }
@@ -49,6 +53,22 @@ export function calculateDamage(
     };
   }
 
+  // Air Balloon item gives full immunity to Ground attacks until popped
+  if (
+    move.type === '땅' &&
+    defender.item === 'air_balloon' &&
+    !defender.itemConsumed
+  ) {
+    return {
+      damage: 0,
+      typeEffectiveness: 0,
+      isCrit: false,
+      isImmune: true,
+      isSuperEffective: false,
+      isNotVeryEffective: false,
+    };
+  }
+
   // Type effectiveness
   const typeEffectiveness = getTypeEffectiveness(move.type, defender.types);
 
@@ -65,20 +85,36 @@ export function calculateDamage(
 
   // STAB (Same-Type Attack Bonus)
   const isStab = attacker.types.includes(move.type);
-  const stabMultiplier = isStab ? 1.5 : 1.0;
+  let stabMultiplier = isStab ? 1.5 : 1.0;
+  // Type plate boosts STAB moves by additional 20%
+  if (isStab && attacker.item === 'legendary_plate') {
+    stabMultiplier *= 1.2;
+  }
 
-  // Critical hit check (1/16 normal, 1/8 if critBoost)
-  const critRate = move.critBoost ? 0.125 : 0.0625;
+  // Critical hit check (Scope Lens item boosts crit rate)
+  const isScopeLens = attacker.item === 'scope_lens';
+  const critRate = isScopeLens
+    ? move.critBoost
+      ? 0.50
+      : 0.25
+    : move.critBoost
+    ? 0.125
+    : 0.0625;
   const isCrit = Math.random() < critRate;
   const critMultiplier = isCrit ? 1.5 : 1.0;
 
-  // Stats calculation with stages
+  // Stats calculation with stages & Held Items
   let attackStat = 0;
   let defenseStat = 0;
 
   if (move.category === 'physical') {
     attackStat = attacker.stats.attack * getStageMultiplier(attacker.statStages.attack);
     defenseStat = defender.stats.defense * getStageMultiplier(defender.statStages.defense);
+
+    // Choice Band boosts Physical Attack by 50%
+    if (attacker.item === 'choice_band') {
+      attackStat *= 1.5;
+    }
 
     // Azumarill Huge Power (천하장사)
     if (attacker.ability.name === '천하장사') {
@@ -91,11 +127,22 @@ export function calculateDamage(
   } else {
     // Special attack
     attackStat = attacker.stats.spAttack * getStageMultiplier(attacker.statStages.spAttack);
+
+    // Choice Specs boosts Special Attack by 50%
+    if (attacker.item === 'choice_specs') {
+      attackStat *= 1.5;
+    }
+
     // Psyshock hits physical defense
     if (move.id === 'psyshock') {
       defenseStat = defender.stats.defense * getStageMultiplier(defender.statStages.defense);
     } else {
       defenseStat = defender.stats.spDefense * getStageMultiplier(defender.statStages.spDefense);
+
+      // Assault Vest boosts Special Defense by 50%
+      if (defender.item === 'assault_vest') {
+        defenseStat *= 1.5;
+      }
     }
   }
 
@@ -119,7 +166,6 @@ export function calculateDamage(
 
   let balanceMultiplier = 1.0;
   if (!isPlayer) {
-    // Opponent damage tuning: prevents sudden unfair 1-shot wipes on standard hits
     if (difficulty === 'casual') {
       balanceMultiplier = 0.70;
     } else if (difficulty === 'normal') {
@@ -128,7 +174,6 @@ export function calculateDamage(
       balanceMultiplier = 1.0; // Hardcore
     }
   } else {
-    // Player damage scaling
     if (difficulty === 'casual') {
       balanceMultiplier = 1.20;
     } else if (difficulty === 'normal') {
@@ -138,6 +183,21 @@ export function calculateDamage(
     }
   }
 
+  // Held Item Damage Multipliers:
+  // 1. Life Orb (+30% all damage)
+  let itemDmgMultiplier = 1.0;
+  if (attacker.item === 'life_orb') {
+    itemDmgMultiplier *= 1.3;
+  }
+  // 2. Expert Belt (+20% super-effective damage)
+  if (attacker.item === 'expert_belt' && typeEffectiveness > 1) {
+    itemDmgMultiplier *= 1.2;
+  }
+  // 3. Light Clay (Defender takes 15% reduced damage)
+  if (defender.item === 'light_clay') {
+    itemDmgMultiplier *= 0.85;
+  }
+
   let totalDamage = Math.floor(
     baseDamage *
       stabMultiplier *
@@ -145,7 +205,8 @@ export function calculateDamage(
       critMultiplier *
       randomMultiplier *
       abilityDefMultiplier *
-      balanceMultiplier
+      balanceMultiplier *
+      itemDmgMultiplier
   );
 
   totalDamage = Math.max(1, totalDamage);
@@ -165,6 +226,8 @@ export type TurnOrderReason =
   | 'opponent_priority'
   | 'player_speed'
   | 'opponent_speed'
+  | 'player_quick_claw'
+  | 'opponent_quick_claw'
   | 'speed_tie';
 
 export interface TurnOrderResult {
@@ -182,10 +245,34 @@ export function determineTurnOrder(
   playerMove: Move,
   opponentMove: Move
 ): TurnOrderResult {
-  const playerPriority = playerMove.priority || 0;
-  const opponentPriority = opponentMove.priority || 0;
+  let playerPriority = playerMove.priority || 0;
+  let opponentPriority = opponentMove.priority || 0;
   const playerSpeed = getEffectiveSpeed(player);
   const opponentSpeed = getEffectiveSpeed(opponent);
+
+  // Quick Claw item (20% chance to grant top priority bracket)
+  const playerQuickClaw = player.item === 'quick_claw' && Math.random() < 0.20;
+  const opponentQuickClaw = opponent.item === 'quick_claw' && Math.random() < 0.20;
+
+  if (playerQuickClaw && !opponentQuickClaw) {
+    return {
+      firstAttacker: 'player',
+      reason: 'player_quick_claw',
+      playerSpeed,
+      opponentSpeed,
+      playerPriority: playerPriority + 1,
+      opponentPriority,
+    };
+  } else if (opponentQuickClaw && !playerQuickClaw) {
+    return {
+      firstAttacker: 'opponent',
+      reason: 'opponent_quick_claw',
+      playerSpeed,
+      opponentSpeed,
+      playerPriority,
+      opponentPriority: opponentPriority + 1,
+    };
+  }
 
   // 1. Move Priority has absolute top precedence
   if (playerPriority !== opponentPriority) {
@@ -330,6 +417,8 @@ export function fullHealPokemon(pokemon: PokemonData): PokemonData {
     status: 'none',
     statusTurns: 0,
     fainted: false,
+    itemConsumed: false,
+    choiceLockedMoveId: undefined,
     statStages: {
       attack: 0,
       defense: 0,

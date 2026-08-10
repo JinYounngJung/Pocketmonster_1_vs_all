@@ -16,6 +16,7 @@ import { OakCoachChat } from './components/OakCoachChat';
 import { TypeChartModal } from './components/TypeChartModal';
 import { AdminPage } from './components/AdminPage';
 import { sounds } from './utils/soundEffects';
+import { bgmEngine } from './utils/bgmEngine';
 
 type GamePhase = 'party_builder' | 'admin' | 'elite_intro' | 'battle' | 'stage_clear' | 'game_over' | 'victory';
 
@@ -23,14 +24,14 @@ export default function App() {
   const [dataVersion, setDataVersion] = useState<number>(0);
   const [storedMasters, setStoredMasters] = useState<EliteFourMaster[]>(() => getStoredEliteMasters());
 
-  // Default party pre-selected for fast jump-in, yet fully customizable
+  // Default party pre-selected for fast jump-in with competitive held items
   const [party, setParty] = useState<PokemonData[]>(() => [
-    getStoredPokemonById('garchomp'),
-    getStoredPokemonById('charizard'),
-    getStoredPokemonById('lucario'),
-    getStoredPokemonById('milotic'),
-    getStoredPokemonById('mimikyu'),
-    getStoredPokemonById('volcarona'),
+    { ...getStoredPokemonById('garchomp'), item: 'life_orb', itemConsumed: false },
+    { ...getStoredPokemonById('charizard'), item: 'choice_specs', itemConsumed: false },
+    { ...getStoredPokemonById('lucario'), item: 'focus_sash', itemConsumed: false },
+    { ...getStoredPokemonById('milotic'), item: 'leftovers', itemConsumed: false },
+    { ...getStoredPokemonById('mimikyu'), item: 'lum_berry', itemConsumed: false },
+    { ...getStoredPokemonById('volcarona'), item: 'heavy_duty_boots', itemConsumed: false },
   ]);
 
   const [currentStageIndex, setCurrentStageIndex] = useState<number>(0); // 0 = Stage 1, 1 = Stage 2, 2 = Stage 3, 3 = Stage 4
@@ -84,9 +85,21 @@ export default function App() {
     setCurrentStageIndex(0);
     setTotalTurnsCount(0);
     setGamePhase('elite_intro');
+    // Start 4th Gen Elite Four BGM
+    if (!bgmEngine.getIsPlaying()) {
+      bgmEngine.play('sinnoh_elite_four');
+    }
   };
 
   const handleStartBattle = () => {
+    const currentMaster = storedMasters[currentStageIndex];
+    const isCynthia = currentMaster?.name.includes('난천') || (currentStageIndex + 1) >= 5;
+    if (isCynthia) {
+      bgmEngine.setTrack('cynthia_champion');
+      if (!bgmEngine.getIsPlaying()) bgmEngine.play('cynthia_champion');
+    } else {
+      if (!bgmEngine.getIsPlaying()) bgmEngine.play('sinnoh_elite_four');
+    }
     setGamePhase('battle');
   };
 
@@ -102,9 +115,17 @@ export default function App() {
     const nextIndex = currentStageIndex + 1;
     if (nextIndex < storedMasters.length) {
       setCurrentStageIndex(nextIndex);
+      const nextMaster = storedMasters[nextIndex];
+      const isCynthia = nextMaster?.name.includes('난천') || (nextIndex + 1) >= 5;
+      if (isCynthia) {
+        bgmEngine.setTrack('cynthia_champion');
+      } else {
+        bgmEngine.setTrack('sinnoh_elite_four');
+      }
       setGamePhase('elite_intro');
     } else {
       // Defeated all 4 Elite Four Masters!
+      bgmEngine.setTrack('sinnoh_league');
       setGamePhase('victory');
     }
   };

@@ -8,6 +8,7 @@ import {
 } from '../types/pokemon';
 import { TypeBadge } from './TypeBadge';
 import { PokemonStatusBadge } from './PokemonStatusBadge';
+import { HeldItemBadge } from './HeldItemBadge';
 import { BattleControls } from './BattleControls';
 import { BattleLogBox } from './BattleLogBox';
 import { SwitchPokemonModal } from './SwitchPokemonModal';
@@ -20,8 +21,10 @@ import {
   determineTurnOrder,
 } from '../utils/battleEngine';
 import { sounds } from '../utils/soundEffects';
+import { bgmEngine } from '../utils/bgmEngine';
+import { BgmPlayerWidget } from './BgmPlayerWidget';
 import { getGameSettings } from '../utils/localStorageStore';
-import { Shield, Sparkles, Heart, Zap, User } from 'lucide-react';
+import { Shield, Sparkles, Heart, Zap, User, Music } from 'lucide-react';
 
 interface BattleScreenProps {
   master: EliteFourMaster;
@@ -59,8 +62,8 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState<boolean>(false);
 
   // Visual animation flags
-  const [playerAnim, setPlayerAnim] = useState<'idle' | 'attack' | 'hit' | 'faint'>('idle');
-  const [opponentAnim, setOpponentAnim] = useState<'idle' | 'attack' | 'hit' | 'faint'>('idle');
+  const [playerAnim, setPlayerAnim] = useState<'idle' | 'attack' | 'hit' | 'hit-light' | 'hit-heavy' | 'faint'>('idle');
+  const [opponentAnim, setOpponentAnim] = useState<'idle' | 'attack' | 'hit' | 'hit-light' | 'hit-heavy' | 'faint'>('idle');
   const [activeVFX, setActiveVFX] = useState<ActiveSkillVFX | null>(null);
 
   const activePlayer = playerParty[activePlayerIdx];
@@ -69,6 +72,17 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   // Remaining pokemon counts
   const playerAliveCount = playerParty.filter((p) => p.currentHp > 0).length;
   const opponentAliveCount = opponentParty.filter((p) => p.currentHp > 0).length;
+
+  // Auto-play 4th Gen Elite Four BGM upon battle screen entry
+  useEffect(() => {
+    const isCynthia = master.name.includes('난천') || master.stage >= 5;
+    const targetTrack = isCynthia ? 'cynthia_champion' : 'sinnoh_elite_four';
+    if (!bgmEngine.getIsPlaying()) {
+      bgmEngine.play(targetTrack);
+    } else if (isCynthia && bgmEngine.getCurrentTrack() !== 'cynthia_champion') {
+      bgmEngine.setTrack('cynthia_champion');
+    }
+  }, [master.name, master.stage]);
 
   const addLog = (text: string, type: BattleLog['type'] = 'normal') => {
     setLogs((prev) => [
@@ -106,7 +120,11 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
     );
 
     // Announce speed & priority verdict in logs
-    if (turnOrder.reason === 'player_priority') {
+    if (turnOrder.reason === 'player_quick_claw') {
+      addLog(`🐾 [선제공격손톱] ${currentPlayer.name}의 선제공격손톱이 번쩍였다! 우선 행동!`, 'status');
+    } else if (turnOrder.reason === 'opponent_quick_claw') {
+      addLog(`🐾 [선제공격손톱] 상대 ${currentOpponent.name}의 선제공격손톱이 번쩍였다!`, 'resist');
+    } else if (turnOrder.reason === 'player_priority') {
       addLog(`⚡ [선공기 발동] ${currentPlayer.name}의 ${playerMove.name} (우선도 +${turnOrder.playerPriority})`, 'status');
     } else if (turnOrder.reason === 'opponent_priority') {
       addLog(`⚡ [상대 선공기] 상대 ${currentOpponent.name}의 ${opponentMove.name} (우선도 +${turnOrder.opponentPriority})`, 'resist');
@@ -116,6 +134,15 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       addLog(`⚠️ [상대 스피드 우위] 상대 ${currentOpponent.name}(스피드 ${turnOrder.opponentSpeed}) > 내 포켓몬(${turnOrder.playerSpeed})`, 'resist');
     } else if (turnOrder.reason === 'speed_tie') {
       addLog(`⚖️ [동속 판정] 스피드 ${turnOrder.playerSpeed} 동률! 50% 확률 선공 추첨`, 'normal');
+    }
+
+    // Apply Choice Item Move Locks
+    const choiceItems = ['choice_band', 'choice_specs', 'choice_scarf'];
+    if (currentPlayer.item && choiceItems.includes(currentPlayer.item) && !currentPlayer.choiceLockedMoveId) {
+      currentPlayer.choiceLockedMoveId = playerMove.id;
+    }
+    if (currentOpponent.item && choiceItems.includes(currentOpponent.item) && !currentOpponent.choiceLockedMoveId) {
+      currentOpponent.choiceLockedMoveId = opponentMove.id;
     }
 
     const firstAttacker = turnOrder.firstAttacker;
@@ -245,9 +272,10 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
     addLog(`${attackerName}의 ${move.name}!`, 'normal');
 
     // Trigger visual skill effect overlay & elemental sound
-    sounds.playMoveVFXSound(move.type, move.category, move.power || 0);
+    sounds.playMoveVFXSound(move.type, move.category, move.power || 0, move.id, move.name);
     setActiveVFX({
       id: `${side}-${Date.now()}`,
+      moveId: move.id,
       moveName: move.name,
       moveType: move.type,
       category: move.category,
@@ -318,6 +346,26 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
             addLog(`${defenderName}의 ${statNameKr[sc.stat] || sc.stat} ${sc.stages}`, 'status');
           }
         });
+
+        // White Herb (하양허브): restores lowered stats
+        if (currentDefender.item === 'white_herb' && !currentDefender.itemConsumed) {
+          const hasDebuff = Object.values(currentDefender.statStages).some((st) => st < 0);
+          if (hasDebuff) {
+            currentDefender.statStages = {
+              attack: Math.max(0, currentDefender.statStages.attack),
+              defense: Math.max(0, currentDefender.statStages.defense),
+              spAttack: Math.max(0, currentDefender.statStages.spAttack),
+              spDefense: Math.max(0, currentDefender.statStages.spDefense),
+              speed: Math.max(0, currentDefender.statStages.speed),
+              accuracy: Math.max(0, currentDefender.statStages.accuracy),
+              evasion: Math.max(0, currentDefender.statStages.evasion),
+            };
+            currentDefender.itemConsumed = true;
+            sounds.playHeal();
+            setCurrentMessage(`🌿 [하양허브] ${defenderName}의 하양허브가 발동하여 떨어진 능력치가 원래대로 돌아왔다!`);
+            addLog(`🌿 [하양허브] ${defenderName} 능력치 하락 복구!`, 'status');
+          }
+        }
       }
 
       // Status conditions
@@ -335,6 +383,15 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
         };
         setCurrentMessage(`${defenderName}은(는) ${statusKr[condition]}`);
         addLog(`${defenderName}: ${statusKr[condition]}`, 'status');
+
+        // Lum Berry (리샘열매): instantly cures any status condition
+        if (currentDefender.item === 'lum_berry' && !currentDefender.itemConsumed) {
+          currentDefender.status = 'none';
+          currentDefender.itemConsumed = true;
+          sounds.playHeal();
+          setCurrentMessage(`🍇 [리샘열매] ${defenderName}은(는) 리샘열매를 먹고 상태이상을 회복했다!`);
+          addLog(`🍇 [리샘열매] ${defenderName} 상태이상 완치!`, 'heal');
+        }
       }
 
       await sleep(700);
@@ -357,42 +414,71 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       currentDefender.ability = { ...currentDefender.ability, name: '탈(파괴됨)' };
       setCurrentMessage(`따라큐의 탈이 대신 공격을 막아냈다!`);
       addLog(`따라큐의 탈이 깨졌다!`, 'resist');
-      sounds.playHit();
+      sounds.playHitLight();
       await sleep(700);
       return { attacker: currentAttacker, defender: currentDefender };
     }
 
-    // Play hit sound & anim on defender
+    // Calculate damage ratio relative to defender's max HP
+    const damageRatio = dmgResult.damage / Math.max(1, currentDefender.stats.hp);
+
+    // Play damage-tiered hit sound based on damage percentage, critical hit, super-effectiveness, and immunity
+    sounds.playDamageHit({
+      damage: dmgResult.damage,
+      maxHp: currentDefender.stats.hp,
+      isCrit: dmgResult.isCrit,
+      isSuperEffective: dmgResult.isSuperEffective,
+      isImmune: dmgResult.isImmune,
+      typeEffectiveness: dmgResult.typeEffectiveness,
+    });
+
+    // Dynamic animation intensity based on damage tier
+    const animTier =
+      damageRatio >= 0.55 || dmgResult.isCrit
+        ? 'hit-heavy'
+        : damageRatio < 0.20
+        ? 'hit-light'
+        : 'hit';
+
+    const animDuration = animTier === 'hit-heavy' ? 450 : animTier === 'hit-light' ? 250 : 350;
+
     if (side === 'player') {
-      setOpponentAnim('hit');
-      setTimeout(() => setOpponentAnim('idle'), 350);
+      setOpponentAnim(animTier);
+      setTimeout(() => setOpponentAnim('idle'), animDuration);
     } else {
-      setPlayerAnim('hit');
-      setTimeout(() => setPlayerAnim('idle'), 350);
+      setPlayerAnim(animTier);
+      setTimeout(() => setPlayerAnim('idle'), animDuration);
     }
 
-    if (dmgResult.isSuperEffective) {
-      sounds.playSuperEffective();
-    } else if (dmgResult.isCrit) {
-      sounds.playCritical();
-    } else {
-      sounds.playHit();
+    // Air Balloon pop check
+    if (dmgResult.damage > 0 && currentDefender.item === 'air_balloon' && !currentDefender.itemConsumed) {
+      currentDefender.itemConsumed = true;
+      addLog(`🎈 [풍선] ${defenderName}의 풍선이 터졌다!`, 'normal');
     }
 
-    // Focus Endure Mechanic (기합의 버티기):
-    // If player is at 100% full HP and would take a fatal 1-shot OHKO, survive with 1 HP (Casual / Normal mode)
+    // Focus Sash (기합의띠) & Focus Endure Mechanic:
     const wasDefenderFullHp = currentDefender.currentHp >= currentDefender.stats.hp;
     let finalDamage = dmgResult.damage;
 
-    if (
-      side === 'opponent' &&
-      wasDefenderFullHp &&
-      finalDamage >= currentDefender.currentHp &&
-      settings.difficulty !== 'hardcore'
-    ) {
-      currentDefender.currentHp = 1;
-      setCurrentMessage(`${defenderName}은(는) 트레이너를 향한 근성으로 버텨냈다! (HP 1 남음)`);
-      addLog(`✨ ${defenderName} 기합으로 버팀! (HP 1)`, 'heal');
+    if (wasDefenderFullHp && finalDamage >= currentDefender.currentHp) {
+      // 1. Focus Sash held item
+      if (currentDefender.item === 'focus_sash' && !currentDefender.itemConsumed) {
+        currentDefender.currentHp = 1;
+        currentDefender.itemConsumed = true;
+        sounds.playHeal();
+        setCurrentMessage(`🎗️ [기합의띠] ${defenderName}은(는) 기합의띠로 치명타를 버텨냈다! (HP 1 남음)`);
+        addLog(`🎗️ [기합의띠] ${defenderName} 기합의띠로 버팀! (HP 1)`, 'heal');
+      } else if (
+        side === 'opponent' &&
+        settings.difficulty !== 'hardcore'
+      ) {
+        // Friendly difficulty endurance
+        currentDefender.currentHp = 1;
+        setCurrentMessage(`${defenderName}은(는) 트레이너를 향한 근성으로 버텨냈다! (HP 1 남음)`);
+        addLog(`✨ ${defenderName} 기합으로 버팀! (HP 1)`, 'heal');
+      } else {
+        currentDefender.currentHp = 0;
+      }
     } else {
       // Standard Damage Application
       currentDefender.currentHp = Math.max(0, currentDefender.currentHp - finalDamage);
@@ -409,11 +495,58 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       setCurrentMessage('효과가 별로인 듯하다...');
       addLog(`효과가 별로인 듯하다 (${dmgResult.typeEffectiveness}x)`, 'resist');
     } else if (dmgResult.isImmune) {
-      setCurrentMessage('효과가 없는 것 같다...');
-      addLog('효과가 없는 것 같다... (0x)', 'resist');
+      if (move.type === '땅' && currentDefender.item === 'air_balloon' && !currentDefender.itemConsumed) {
+        setCurrentMessage(`🎈 [풍선] ${defenderName}은(는) 풍선으로 땅 기술을 무효화했다!`);
+        addLog(`🎈 [풍선] ${defenderName} 땅 기술 무효화!`, 'resist');
+      } else {
+        setCurrentMessage('효과가 없는 것 같다...');
+        addLog('효과가 없는 것 같다... (0x)', 'resist');
+      }
     }
 
-    // Recoil or Drain
+    // Weakness Policy (약점보험): +2 Atk, +2 SpAtk on Super Effective Hit
+    if (
+      dmgResult.isSuperEffective &&
+      currentDefender.currentHp > 0 &&
+      currentDefender.item === 'weakness_policy' &&
+      !currentDefender.itemConsumed
+    ) {
+      currentDefender.itemConsumed = true;
+      currentDefender.statStages.attack = Math.min(6, currentDefender.statStages.attack + 2);
+      currentDefender.statStages.spAttack = Math.min(6, currentDefender.statStages.spAttack + 2);
+      sounds.playSuperEffective();
+      setCurrentMessage(`🛡️ [약점보험] 약점 공격을 맞고 약점보험 발동! ${defenderName}의 공격/특수공격이 2랭크 상승했다!`);
+      addLog(`🛡️ [약점보험] ${defenderName} 공격/특공 +2랭크!`, 'status');
+    }
+
+    // Rocky Helmet (울퉁불퉁멧): Recoil to physical attackers
+    if (
+      currentDefender.item === 'rocky_helmet' &&
+      move.category === 'physical' &&
+      currentAttacker.currentHp > 0 &&
+      dmgResult.damage > 0
+    ) {
+      const helmetDmg = Math.max(1, Math.floor(currentAttacker.stats.hp / 6));
+      currentAttacker.currentHp = Math.max(0, currentAttacker.currentHp - helmetDmg);
+      addLog(`⛑️ [울퉁불퉁멧] ${attackerName}은(는) 울퉁불퉁멧에 부딪혀 ${helmetDmg} 데미지를 입었다!`, 'resist');
+    }
+
+    // Sitrus Berry (자뭉열매): Consumed when HP drops <= 50%
+    if (
+      currentDefender.currentHp > 0 &&
+      currentDefender.currentHp <= Math.floor(currentDefender.stats.hp / 2) &&
+      currentDefender.item === 'sitrus_berry' &&
+      !currentDefender.itemConsumed
+    ) {
+      currentDefender.itemConsumed = true;
+      const healAmt = Math.floor(currentDefender.stats.hp / 4);
+      currentDefender.currentHp = Math.min(currentDefender.stats.hp, currentDefender.currentHp + healAmt);
+      sounds.playHeal();
+      setCurrentMessage(`🍋 [자뭉열매] ${defenderName}은(는) 자뭉열매를 먹고 체력을 회복했다! (+${healAmt} HP)`);
+      addLog(`🍋 [자뭉열매] ${defenderName} 체력 +${healAmt} 회복!`, 'heal');
+    }
+
+    // Recoil or Drain from Moves
     if (move.drainRatio && dmgResult.damage > 0) {
       const drain = Math.floor(dmgResult.damage * move.drainRatio);
       currentAttacker.currentHp = Math.min(
@@ -429,11 +562,22 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       addLog(`${attackerName}은(는) 반동 데미지를 입었다!`, 'normal');
     }
 
+    // Life Orb (생명의구슬) Recoil: 10% max HP on dealing damage
+    if (
+      currentAttacker.item === 'life_orb' &&
+      dmgResult.damage > 0 &&
+      currentAttacker.currentHp > 0
+    ) {
+      const lifeOrbRecoil = Math.max(1, Math.floor(currentAttacker.stats.hp / 10));
+      currentAttacker.currentHp = Math.max(0, currentAttacker.currentHp - lifeOrbRecoil);
+      addLog(`🔮 [생명의구슬] ${attackerName}은(는) 생명의구슬 반동으로 HP를 잃었다! (-${lifeOrbRecoil})`, 'normal');
+    }
+
     await sleep(700);
     return { attacker: currentAttacker, defender: currentDefender };
   };
 
-  // End of turn status damage
+  // End of turn status damage and recovery items (Leftovers, Sitrus Berry)
   const handleEndOfTurnStatus = (
     player: PokemonData,
     opponent: PokemonData
@@ -441,6 +585,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
     let p = { ...player };
     let o = { ...opponent };
 
+    // Burn / Poison Damage
     if (p.status === 'burn' && p.currentHp > 0) {
       const burnDmg = Math.max(1, Math.floor(p.stats.hp / 16));
       p.currentHp = Math.max(0, p.currentHp - burnDmg);
@@ -459,6 +604,38 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       const poisonDmg = Math.max(1, Math.floor(o.stats.hp / 8));
       o.currentHp = Math.max(0, o.currentHp - poisonDmg);
       addLog(`상대 ${o.name}은(는) 독 데미지를 입었다!`, 'status');
+    }
+
+    // Leftovers (먹다남은음식): recovers 1/16 max HP at turn end
+    if (p.currentHp > 0 && p.item === 'leftovers') {
+      const healAmt = Math.max(1, Math.floor(p.stats.hp / 16));
+      const newHp = Math.min(p.stats.hp, p.currentHp + healAmt);
+      if (newHp > p.currentHp) {
+        p.currentHp = newHp;
+        addLog(`🍎 [먹다남은음식] ${p.name} 체력 +${healAmt} 회복!`, 'heal');
+      }
+    }
+    if (o.currentHp > 0 && o.item === 'leftovers') {
+      const healAmt = Math.max(1, Math.floor(o.stats.hp / 16));
+      const newHp = Math.min(o.stats.hp, o.currentHp + healAmt);
+      if (newHp > o.currentHp) {
+        o.currentHp = newHp;
+        addLog(`🍎 [상대 먹다남은음식] 상대 ${o.name} 체력 +${healAmt} 회복!`, 'heal');
+      }
+    }
+
+    // Post-status Sitrus Berry check
+    if (p.currentHp > 0 && p.currentHp <= Math.floor(p.stats.hp / 2) && p.item === 'sitrus_berry' && !p.itemConsumed) {
+      p.itemConsumed = true;
+      const healAmt = Math.floor(p.stats.hp / 4);
+      p.currentHp = Math.min(p.stats.hp, p.currentHp + healAmt);
+      addLog(`🍋 [자뭉열매] ${p.name} 체력 +${healAmt} 회복!`, 'heal');
+    }
+    if (o.currentHp > 0 && o.currentHp <= Math.floor(o.stats.hp / 2) && o.item === 'sitrus_berry' && !o.itemConsumed) {
+      o.itemConsumed = true;
+      const healAmt = Math.floor(o.stats.hp / 4);
+      o.currentHp = Math.min(o.stats.hp, o.currentHp + healAmt);
+      addLog(`🍋 [상대 자뭉열매] 상대 ${o.name} 체력 +${healAmt} 회복!`, 'heal');
     }
 
     return { player: p, opponent: o };
@@ -547,6 +724,11 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       addLog(`포켓몬 교체: ${activePlayer.name} ➜ ${incoming.name}`, 'switch');
     }
 
+    // Reset choiceLock when switching out or in
+    setPlayerParty((prev) =>
+      prev.map((p, idx) => ({ ...p, choiceLockedMoveId: undefined }))
+    );
+
     setActivePlayerIdx(targetIndex);
     setPlayerAnim('idle');
 
@@ -596,19 +778,22 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       id="battle-screen-container"
       className="w-full max-w-5xl mx-auto px-2 sm:px-4 py-4 space-y-4 animate-fade-in"
     >
-      {/* Top Banner: Master Info & Pokeball Counters */}
-      <div className="flex items-center justify-between bg-slate-900 px-4 py-2.5 border-2 border-black shadow-[4px_4px_0px_#000] text-xs">
+      {/* Top Banner: Master Info & Pokeball Counters & BGM Widget */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900 px-4 py-2 border-2 border-black shadow-[4px_4px_0px_#000] text-xs">
         <div className="flex items-center gap-2">
-          <span className="font-black text-yellow-400 uppercase">사천왕 {master.name}</span>
+          <span className="font-black text-yellow-400 uppercase text-sm">사천왕 {master.name}</span>
           <span className="text-slate-500 font-bold">|</span>
           <span className="text-white font-black uppercase">STAGE {master.stage} / 4</span>
+          <div className="hidden sm:flex items-center gap-1.5 ml-2">
+            {master.specialtyTypes.map((t) => (
+              <TypeBadge key={t} type={t} size="sm" />
+            ))}
+          </div>
         </div>
 
-        {/* Master Specialty Badges */}
-        <div className="flex items-center gap-1.5">
-          {master.specialtyTypes.map((t) => (
-            <TypeBadge key={t} type={t} size="sm" />
-          ))}
+        {/* In-Battle BGM Player & Controls */}
+        <div className="flex items-center gap-2">
+          <BgmPlayerWidget theme="battle" className="py-1 px-2 text-xs" />
         </div>
       </div>
 
@@ -659,6 +844,13 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                 status={activeOpponent.status}
                 statStages={activeOpponent.statStages}
               />
+              {activeOpponent.item && (
+                <HeldItemBadge
+                  itemId={activeOpponent.item}
+                  isConsumed={activeOpponent.itemConsumed}
+                  size="sm"
+                />
+              )}
             </div>
 
             {/* Opponent HP Bar */}
@@ -698,6 +890,10 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
               className={`relative w-36 h-36 sm:w-48 sm:h-48 flex items-center justify-center transition-transform duration-200 ${
                 opponentAnim === 'attack'
                   ? 'translate-x-[-20px] scale-110'
+                  : opponentAnim === 'hit-heavy'
+                  ? 'animate-shake-heavy filter brightness-200 contrast-125'
+                  : opponentAnim === 'hit-light'
+                  ? 'animate-shake-light filter brightness-125'
                   : opponentAnim === 'hit'
                   ? 'animate-shake filter brightness-150'
                   : opponentAnim === 'faint'
@@ -724,6 +920,10 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
               className={`relative w-36 h-36 sm:w-48 sm:h-48 flex items-center justify-center transition-transform duration-200 ${
                 playerAnim === 'attack'
                   ? 'translate-x-[20px] scale-110'
+                  : playerAnim === 'hit-heavy'
+                  ? 'animate-shake-heavy filter brightness-200 contrast-125'
+                  : playerAnim === 'hit-light'
+                  ? 'animate-shake-light filter brightness-125'
                   : playerAnim === 'hit'
                   ? 'animate-shake filter brightness-150'
                   : playerAnim === 'faint'
@@ -776,6 +976,13 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                 status={activePlayer.status}
                 statStages={activePlayer.statStages}
               />
+              {activePlayer.item && (
+                <HeldItemBadge
+                  itemId={activePlayer.item}
+                  isConsumed={activePlayer.itemConsumed}
+                  size="sm"
+                />
+              )}
             </div>
 
             {/* Player HP Bar */}

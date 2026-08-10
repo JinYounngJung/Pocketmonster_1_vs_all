@@ -2,7 +2,8 @@ import React from 'react';
 import { PokemonData, PokemonType } from '../types/pokemon';
 import { TypeBadge } from './TypeBadge';
 import { getDefenseWeaknesses } from '../data/typeChart';
-import { X, Heart, Shield, Sword, Zap, Sparkles, Activity } from 'lucide-react';
+import { getHeldItemById } from '../data/heldItems';
+import { X, Heart, Shield, Sword, Zap, Sparkles, Activity, Package } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
 interface PokemonDetailModalProps {
@@ -13,6 +14,7 @@ interface PokemonDetailModalProps {
 export const PokemonDetailModal: React.FC<PokemonDetailModalProps> = ({ pokemon, onClose }) => {
   if (!pokemon) return null;
 
+  const itemData = getHeldItemById(pokemon.item);
   const weaknesses = getDefenseWeaknesses(pokemon.types);
   const totalBase = Object.values(pokemon.baseStats).reduce((a, b) => Number(a) + Number(b), 0);
 
@@ -99,6 +101,25 @@ export const PokemonDetailModal: React.FC<PokemonDetailModalProps> = ({ pokemon,
                 </span>
                 <span className="text-sm font-black text-white block">{pokemon.ability.name}</span>
                 <p className="text-xs text-slate-300 mt-1 max-w-xs font-medium">{pokemon.ability.description}</p>
+              </div>
+
+              {/* Held Item Display */}
+              <div className="mt-3 pt-3 border-t border-slate-800 text-center w-full">
+                <span className="text-[11px] font-black text-yellow-400 uppercase tracking-wider block flex items-center justify-center gap-1">
+                  <Package className="w-3 h-3 text-yellow-400" /> 지닌물건 (Held Item)
+                </span>
+                {itemData ? (
+                  <div className="mt-1 bg-slate-900 border border-black p-2 shadow-[2px_2px_0px_#000]">
+                    <div className="flex items-center justify-center gap-1.5 font-black text-sm text-yellow-300">
+                      <span>{itemData.icon}</span>
+                      <span>{itemData.name}</span>
+                      <span className="text-[10px] text-slate-400 font-normal">({itemData.nameEn})</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-1">{itemData.description}</p>
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-500 font-bold block mt-1">장착된 지닌물건 없음</span>
+                )}
               </div>
             </div>
 

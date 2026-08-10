@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { EliteFourMaster, PokemonData } from '../types/pokemon';
 import { TypeBadge } from './TypeBadge';
-import { Swords, ShieldAlert, Sparkles, ArrowRight, Zap } from 'lucide-react';
+import { Swords, ShieldAlert, Sparkles, ArrowRight, Zap, Music } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
+import { bgmEngine } from '../utils/bgmEngine';
 
 interface EliteFourIntroProps {
   master: EliteFourMaster;
@@ -17,6 +18,13 @@ export const EliteFourIntro: React.FC<EliteFourIntroProps> = ({
   onStartBattle,
   onOpenOakChat,
 }) => {
+  useEffect(() => {
+    // Start league/intro BGM when in intro
+    const isCynthia = master.name.includes('난천') || master.stage >= 5;
+    if (!bgmEngine.getIsPlaying()) {
+      bgmEngine.play(isCynthia ? 'cynthia_champion' : 'sinnoh_elite_four');
+    }
+  }, [master.name, master.stage]);
   return (
     <div
       id="elite-four-intro-view"

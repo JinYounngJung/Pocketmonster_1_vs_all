@@ -69,6 +69,25 @@ export interface StatStages {
   evasion: number;
 }
 
+export type HeldItemCategory =
+  | 'defensive' // 방어/내구
+  | 'offensive' // 화력/공격
+  | 'choice' // 구애 시리즈
+  | 'recovery' // 회복/열매
+  | 'tactical'; // 전술/특수
+
+export interface HeldItem {
+  id: string;
+  name: string;
+  nameEn: string;
+  icon: string;
+  category: HeldItemCategory;
+  description: string;
+  triggerTiming: string; // e.g. "피격 시", "턴 종료 시", "공격 시", "상시"
+  isConsumable: boolean; // whether it is consumed once in battle (e.g. Focus Sash, Berries, Weakness Policy)
+  color: string; // Tailwind border/badge color
+}
+
 export interface PokemonData {
   id: string;
   dexNumber: number;
@@ -90,6 +109,8 @@ export interface PokemonData {
   statusTurns: number;
   statStages: StatStages;
   item?: string;
+  itemConsumed?: boolean; // True if consumable item was used in current battle
+  choiceLockedMoveId?: string; // If holding Choice item, locks move until switched
   fainted?: boolean;
   isLegendary?: boolean;
 }

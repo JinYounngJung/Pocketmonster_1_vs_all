@@ -2,8 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { PokemonData, PokemonType } from '../types/pokemon';
 import { ALL_PLAYABLE_POKEMON, getPokemonById } from '../data/pokemonList';
 import { getPlayablePokemonList, getStoredPokemonById } from '../utils/localStorageStore';
+import { getHeldItemById } from '../data/heldItems';
 import { PokemonCard } from './PokemonCard';
 import { TypeBadge } from './TypeBadge';
+import { HeldItemBadge } from './HeldItemBadge';
+import { HeldItemSelectModal } from './HeldItemSelectModal';
 import {
   Swords,
   Sparkles,
@@ -17,6 +20,7 @@ import {
   Shield,
   Zap,
   Settings,
+  Package,
 } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
@@ -51,6 +55,7 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<PokemonType | '전체'>('전체');
   const [selectedGen, setSelectedGen] = useState<'all' | 'legendary' | 'gen4' | 'gen1_3' | 'gen5_8'>('all');
+  const [itemModalPokemon, setItemModalPokemon] = useState<PokemonData | null>(null);
 
   // All playable pokemon from local persistence
   const allPokemonPool = useMemo(() => {
@@ -94,33 +99,106 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
     return Array.from(coveredTypes);
   }, [party]);
 
-  // Preset party generator
+  // Handle equipping or swapping a held item
+  const handleSelectHeldItem = (pokemonId: string, itemId: string | undefined, swappedPokemonId?: string) => {
+    const targetMember = party.find((p) => p.id === pokemonId);
+    const oldItem = targetMember?.item;
+
+    const nextParty = party.map((p) => {
+      if (p.id === pokemonId) {
+        return { ...p, item: itemId, itemConsumed: false, choiceLockedMoveId: undefined };
+      }
+      if (swappedPokemonId && p.id === swappedPokemonId) {
+        return { ...p, item: oldItem, itemConsumed: false, choiceLockedMoveId: undefined };
+      }
+      return p;
+    });
+
+    onSetParty(nextParty);
+  };
+
+  // Preset party generator with diverse held items
   const handleApplyPreset = (presetName: string) => {
     sounds.playClick();
     let ids: string[] = [];
+    let defaultItems: { [id: string]: string } = {};
+
     if (presetName === 'legendary') {
       // Legendary and Mythical Gods
       ids = ['mewtwo', 'rayquaza', 'dialga', 'kyogre', 'zacian', 'arceus'];
+      defaultItems = {
+        mewtwo: 'choice_specs',
+        rayquaza: 'life_orb',
+        dialga: 'adamant_orb',
+        kyogre: 'choice_scarf',
+        zacian: 'focus_sash',
+        arceus: 'leftovers',
+      };
     } else if (presetName === 'sinnoh_allstar') {
       // 4th Generation Sinnoh Champions
       ids = ['infernape', 'empoleon', 'torterra', 'garchomp', 'lucario', 'roserade'];
+      defaultItems = {
+        infernape: 'choice_band',
+        empoleon: 'leftovers',
+        torterra: 'sitrus_berry',
+        garchomp: 'life_orb',
+        lucario: 'focus_sash',
+        roserade: 'choice_specs',
+      };
     } else if (presetName === 'balance') {
       // Balanced powerhouse
       ids = ['garchomp', 'charizard', 'lucario', 'milotic', 'mimikyu', 'volcarona'];
+      defaultItems = {
+        garchomp: 'life_orb',
+        charizard: 'choice_specs',
+        lucario: 'focus_sash',
+        milotic: 'leftovers',
+        mimikyu: 'lum_berry',
+        volcarona: 'heavy_duty_boots',
+      };
     } else if (presetName === 'hyper_offense') {
       // Fast sweeping offense
       ids = ['dragapult', 'weavile', 'cinderace', 'greninja', 'gengar', 'metagross'];
+      defaultItems = {
+        dragapult: 'choice_band',
+        weavile: 'life_orb',
+        cinderace: 'focus_sash',
+        greninja: 'expert_belt',
+        gengar: 'choice_specs',
+        metagross: 'assault_vest',
+      };
     } else if (presetName === 'anti_elite') {
       // Specifically tailored against the 4 Elite Four masters
       ids = ['lucario', 'gardevoir', 'tyranitar', 'mamoswine', 'chandelure', 'dragonite'];
+      defaultItems = {
+        lucario: 'focus_sash',
+        gardevoir: 'choice_specs',
+        tyranitar: 'smooth_rock',
+        mamoswine: 'life_orb',
+        chandelure: 'choice_scarf',
+        dragonite: 'lum_berry',
+      };
     } else if (presetName === 'random') {
       // 6 random unique
       const shuffled = [...allPokemonPool].sort(() => Math.random() - 0.5);
-      ids = shuffled.slice(0, 6).map((p) => p.id);
+      const selected = shuffled.slice(0, 6);
+      const itemsList = ['life_orb', 'focus_sash', 'leftovers', 'choice_band', 'choice_specs', 'lum_berry'];
+      onSetParty(selected.map((p, idx) => ({ ...p, item: itemsList[idx], itemConsumed: false, choiceLockedMoveId: undefined })));
+      return;
     }
 
-    const newParty = ids.map((id) => getStoredPokemonById(id));
-    onSetParty(newParty);
+    const newParty: PokemonData[] = [];
+    ids.forEach((id) => {
+      const base = getStoredPokemonById(id) || getPokemonById(id);
+      if (base) {
+        const item = defaultItems[id];
+        newParty.push({ ...base, item, itemConsumed: false, choiceLockedMoveId: undefined });
+      }
+    });
+
+    if (newParty.length === 6) {
+      onSetParty(newParty);
+    }
   };
 
   return (
@@ -376,6 +454,44 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
                         ))}
                       </div>
                     </div>
+
+                    {/* Held Item Slot Button */}
+                    <div className="w-full mt-2 pt-1.5 border-t border-slate-700/80">
+                      {member.item ? (
+                        <button
+                          id={`btn-slot-item-${slotIdx}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sounds.playClick();
+                            setItemModalPokemon(member);
+                          }}
+                          className="w-full py-1 px-1.5 bg-slate-900 hover:bg-slate-800 border border-yellow-400/80 text-yellow-300 text-[10px] font-black flex items-center justify-between gap-1 cursor-pointer transition-colors shadow-[1px_1px_0px_#000]"
+                          title="지닌물건 변경하기"
+                        >
+                          <span className="truncate flex items-center gap-1">
+                            <span>{getHeldItemById(member.item)?.icon || '🎒'}</span>
+                            <span className="truncate">{getHeldItemById(member.item)?.name || member.item}</span>
+                          </span>
+                          <span className="text-[8px] bg-yellow-400 text-black px-1 py-0.2 uppercase shrink-0 font-bold">
+                            변경
+                          </span>
+                        </button>
+                      ) : (
+                        <button
+                          id={`btn-slot-item-${slotIdx}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sounds.playClick();
+                            setItemModalPokemon(member);
+                          }}
+                          className="w-full py-1 px-1.5 bg-slate-900/90 hover:bg-yellow-400 hover:text-black text-slate-300 border border-dashed border-slate-500 text-[10px] font-black flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                          title="지닌물건 장착하기"
+                        >
+                          <Package className="w-3 h-3 text-yellow-400" />
+                          <span>+ 아이템 장착</span>
+                        </button>
+                      )}
+                    </div>
                   </>
                 ) : (
                   <div className="flex flex-col items-center justify-center text-slate-500 space-y-1 py-4">
@@ -560,6 +676,16 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
           );
         })}
       </div>
+
+      {/* Held Item Select Modal */}
+      {itemModalPokemon && (
+        <HeldItemSelectModal
+          pokemon={itemModalPokemon}
+          party={party}
+          onSelectHeldItem={handleSelectHeldItem}
+          onClose={() => setItemModalPokemon(null)}
+        />
+      )}
     </div>
   );
 };

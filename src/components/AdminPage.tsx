@@ -32,6 +32,8 @@ import {
 import { calculateLv50Stats } from '../data/pokemonList';
 import { TypeBadge } from './TypeBadge';
 import { sounds } from '../utils/soundEffects';
+import { bgmEngine, BGM_TRACKS } from '../utils/bgmEngine';
+import { BgmPlayerWidget } from './BgmPlayerWidget';
 import {
   Settings,
   Shield,
@@ -55,6 +57,11 @@ import {
   Snowflake,
   Sun,
   Edit3,
+  Music,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
 const ALL_TYPES: PokemonType[] = [
@@ -684,6 +691,91 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToGame, onDataChange
               <p className="text-[11px] text-slate-400">
                 스킬 이펙트 연출과 텍스트 출력 대기시간을 조절합니다.
               </p>
+            </div>
+          </div>
+
+          {/* 4th Gen Sinnoh BGM System Card */}
+          <div className="p-4 bg-slate-950 border-2 border-yellow-400/80 shadow-[4px_4px_0px_#000] space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-2">
+                <Music className="w-5 h-5 text-yellow-400" />
+                <h3 className="text-sm font-black text-yellow-400 uppercase">
+                  4세대 신오 BGM 사운드트랙 환경설정 (Web Audio Synthesizer)
+                </h3>
+              </div>
+              <span className="text-[10px] font-black px-2 py-0.5 bg-yellow-400 text-black border border-black uppercase">
+                PROCEDURAL CHIPTUNE
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Track Selector & Live Play */}
+              <div className="space-y-2">
+                <span className="text-xs font-black text-slate-300 block">트랙 즉시 듣기 & 기본 BGM 지정:</span>
+                <div className="space-y-1.5">
+                  {BGM_TRACKS.map((track) => (
+                    <button
+                      key={track.id}
+                      onClick={() => {
+                        sounds.playClick();
+                        bgmEngine.setTrack(track.id);
+                        bgmEngine.play(track.id);
+                      }}
+                      className="w-full text-left p-2 bg-slate-900 hover:bg-slate-800 border-2 border-black flex items-center justify-between text-xs text-white cursor-pointer shadow-[2px_2px_0px_#000]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{track.icon}</span>
+                        <div>
+                          <div className="font-black text-yellow-300">{track.name}</div>
+                          <div className="text-[10px] text-slate-400">{track.description}</div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-black px-2 py-0.5 bg-slate-800 border border-slate-700 text-slate-300">
+                        {track.bpm} BPM
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Equalizer & Volume */}
+              <div className="p-4 bg-slate-900 border-2 border-black flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-black text-yellow-400 uppercase">BGM 컨트롤러</span>
+                    <span className="text-[11px] font-bold text-slate-400">
+                      상태: {bgmEngine.getIsPlaying() ? '▶ 재생 중' : '⏸ 일시 정지'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed mb-3">
+                    Web Audio API 기반 8비트/16비트 사운드 신디사이저로 외부 파일 다운로드 없이 끊김 없는 루프 재생을 지원합니다.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2 border-t border-slate-800">
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      bgmEngine.togglePlayPause();
+                    }}
+                    className="geo-btn px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-black font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_#000]"
+                  >
+                    {bgmEngine.getIsPlaying() ? <Pause className="w-4 h-4 fill-black" /> : <Play className="w-4 h-4 fill-black" />}
+                    <span>{bgmEngine.getIsPlaying() ? '일시정지' : 'BGM 재생'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      bgmEngine.toggleMute();
+                    }}
+                    className="geo-btn px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs uppercase flex items-center gap-1 cursor-pointer border border-slate-700"
+                  >
+                    {bgmEngine.getIsMuted() ? <VolumeX className="w-4 h-4 text-red-500" /> : <Volume2 className="w-4 h-4 text-green-400" />}
+                    <span>{bgmEngine.getIsMuted() ? '음소거 해제' : '음소거'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 

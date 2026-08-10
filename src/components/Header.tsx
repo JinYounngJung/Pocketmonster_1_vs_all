@@ -1,6 +1,7 @@
 import React from 'react';
 import { Volume2, VolumeX, Sparkles, BookOpen, RotateCcw, Settings } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
+import { BgmPlayerWidget } from './BgmPlayerWidget';
 
 interface HeaderProps {
   currentStage: number; // 0 = Team Building, 1..4 = Stage 1..4, 5 = Champion
@@ -75,6 +76,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Controls Bar with Geometric styling */}
         <div className="flex items-center gap-2">
+          {/* 4th Gen Pokemon BGM Player Widget */}
+          <BgmPlayerWidget theme="header" />
+
           {/* Admin Dashboard Button */}
           <button
             id="btn-admin-page"
@@ -119,12 +123,12 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline">상성표</span>
           </button>
 
-          {/* Sound Toggle */}
+          {/* Sound FX Toggle */}
           <button
             id="btn-sound-toggle"
             onClick={onToggleMute}
             className="geo-btn p-1.5 sm:p-2 bg-white hover:bg-slate-100 text-black cursor-pointer"
-            title={isMuted ? '음소거 해제' : '음소거'}
+            title={isMuted ? '효과음 음소거 해제' : '효과음 음소거'}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-red-600" /> : <Volume2 className="w-4 h-4 text-green-700" />}
           </button>

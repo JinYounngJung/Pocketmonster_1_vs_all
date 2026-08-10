@@ -1,9 +1,10 @@
 import React from 'react';
 import { PokemonData, Move } from '../types/pokemon';
 import { TypeBadge } from './TypeBadge';
+import { HeldItemBadge } from './HeldItemBadge';
 import { getTypeEffectiveness } from '../data/typeChart';
 import { getEffectiveSpeed } from '../utils/battleEngine';
-import { RefreshCw, Sparkles, BookOpen, Zap, Gauge, ArrowUpRight, ArrowDownRight, Equal } from 'lucide-react';
+import { RefreshCw, Sparkles, BookOpen, Zap, Gauge, ArrowUpRight, ArrowDownRight, Equal, Lock, ShieldAlert } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
 interface BattleControlsProps {
@@ -34,7 +35,7 @@ export const BattleControls: React.FC<BattleControlsProps> = ({
 
   return (
     <div id="battle-controls-container" className="w-full space-y-2.5">
-      {/* Real-time Speed & Turn Priority Matchup Bar */}
+      {/* Real-time Speed & Turn Priority Matchup Bar & Held Item indicator */}
       <div
         id="speed-turn-priority-hud"
         className={`px-3 py-1.5 border-2 border-black shadow-[3px_3px_0px_#000] flex flex-wrap items-center justify-between gap-2 text-xs font-mono ${
@@ -72,8 +73,18 @@ export const BattleControls: React.FC<BattleControlsProps> = ({
           </span>
         </div>
 
-        {/* Dynamic Status Badge */}
-        <div className="flex items-center gap-1.5 ml-auto">
+        {/* Dynamic Status Badge & Active Held Item */}
+        <div className="flex items-center gap-2 ml-auto">
+          {playerPokemon.item && (
+            <div className="flex items-center gap-1">
+              <HeldItemBadge
+                itemId={playerPokemon.item}
+                isConsumed={playerPokemon.itemConsumed}
+                size="sm"
+              />
+            </div>
+          )}
+
           {isPlayerFaster && (
             <span className="px-2 py-0.5 bg-emerald-500 text-black font-black text-[10px] sm:text-xs border border-black uppercase tracking-tight flex items-center gap-1 shadow-[1px_1px_0px_#000]">
               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -105,6 +116,21 @@ export const BattleControls: React.FC<BattleControlsProps> = ({
           const isOutOfPp = move.pp <= 0;
           const hasPriority = (move.priority || 0) > 0;
 
+          // Assault Vest restriction (no status moves)
+          const isAssaultVestBlocked =
+            playerPokemon.item === 'assault_vest' && move.category === 'status';
+
+          // Choice Item restriction (locked to one move until switched)
+          const isChoiceLocked =
+            !!playerPokemon.choiceLockedMoveId &&
+            playerPokemon.choiceLockedMoveId !== move.id;
+
+          const isDisabled =
+            isProcessingTurn ||
+            isOutOfPp ||
+            isAssaultVestBlocked ||
+            isChoiceLocked;
+
           return (
             <button
               key={move.id}
@@ -113,9 +139,9 @@ export const BattleControls: React.FC<BattleControlsProps> = ({
                 sounds.playClick();
                 onSelectMove(move);
               }}
-              disabled={isProcessingTurn || isOutOfPp}
+              disabled={isDisabled}
               className={`relative p-3 border-2 border-black text-left transition-all flex flex-col justify-between overflow-hidden cursor-pointer shadow-[4px_4px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#000] ${
-                isOutOfPp
+                isDisabled
                   ? 'bg-slate-900 border-slate-700 text-slate-600 cursor-not-allowed opacity-60 shadow-none'
                   : isProcessingTurn
                   ? 'bg-slate-900 border-slate-700 text-slate-500 cursor-wait'
@@ -134,6 +160,18 @@ export const BattleControls: React.FC<BattleControlsProps> = ({
                     </span>
                   )}
                   {move.name}
+                  {isAssaultVestBlocked && (
+                    <span className="px-1.5 py-0.2 bg-red-600 text-white font-black text-[9px] border border-black uppercase flex items-center gap-0.5 shadow-[1px_1px_0px_#000]">
+                      <ShieldAlert className="w-2.5 h-2.5" />
+                      돌격조끼 금지
+                    </span>
+                  )}
+                  {isChoiceLocked && (
+                    <span className="px-1.5 py-0.2 bg-amber-500 text-black font-black text-[9px] border border-black uppercase flex items-center gap-0.5 shadow-[1px_1px_0px_#000]">
+                      <Lock className="w-2.5 h-2.5" />
+                      구애 고정됨
+                    </span>
+                  )}
                 </span>
 
                 <div className="flex items-center gap-1.5">

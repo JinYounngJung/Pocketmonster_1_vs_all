@@ -10,7 +10,8 @@ function makeElitePokemon(
   types: ('노말' | '불꽃' | '물' | '풀' | '전기' | '얼음' | '격투' | '독' | '땅' | '비행' | '에스퍼' | '벌레' | '바위' | '고스트' | '드래곤' | '악' | '강철' | '페어리')[],
   baseStats: { hp: number; attack: number; defense: number; spAttack: number; spDefense: number; speed: number },
   moveKeys: string[],
-  ability: { name: string; description: string }
+  ability: { name: string; description: string },
+  item?: string
 ): PokemonData {
   const stats = calculateLv50Stats(baseStats);
   const moves = moveKeys.map((key) => {
@@ -29,6 +30,9 @@ function makeElitePokemon(
     moves,
     currentHp: stats.hp,
     ability,
+    item,
+    itemConsumed: false,
+    choiceLockedMoveId: undefined,
     spriteFront: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${dexNumber}.png`,
     spriteBack: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${dexNumber}.png`,
     officialArtwork: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexNumber}.png`,
@@ -74,7 +78,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['격투'],
           { hp: 144, attack: 120, defense: 60, spAttack: 40, spDefense: 60, speed: 50 },
           ['close_combat', 'knock_off', 'earthquake', 'stone_edge'],
-          { name: '두꺼운지방', description: '불꽃과 얼음 기술의 피해를 절반으로 줄인다.' }
+          { name: '두꺼운지방', description: '불꽃과 얼음 기술의 피해를 절반으로 줄인다.' },
+          'sitrus_berry'
         ),
         makeElitePokemon(
           'machamp',
@@ -84,7 +89,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['격투'],
           { hp: 90, attack: 130, defense: 80, spAttack: 65, spDefense: 85, speed: 55 },
           ['dynamic_punch', 'stone_edge', 'poison_jab', 'earthquake'],
-          { name: '노가드', description: '자신과 상대의 모든 기술이 필중한다.' }
+          { name: '노가드', description: '자신과 상대의 모든 기술이 필중한다.' },
+          'quick_claw'
         ),
         makeElitePokemon(
           'rhyperior',
@@ -94,7 +100,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['땅', '바위'],
           { hp: 115, attack: 140, defense: 130, spAttack: 55, spDefense: 55, speed: 40 },
           ['earthquake', 'stone_edge', 'swords_dance', 'flamethrower'],
-          { name: '하드록', description: '약점 공격으로 받는 피해를 25% 경감한다.' }
+          { name: '하드록', description: '약점 공격으로 받는 피해를 25% 경감한다.' },
+          'weakness_policy'
         ),
         makeElitePokemon(
           'lucario',
@@ -104,7 +111,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['격투', '강철'],
           { hp: 70, attack: 110, defense: 70, spAttack: 115, spDefense: 70, speed: 90 },
           ['aura_sphere', 'flash_cannon', 'bullet_punch', 'nasty_plot'],
-          { name: '불굴의마음', description: '기세로 상대를 제압한다.' }
+          { name: '불굴의마음', description: '기세로 상대를 제압한다.' },
+          'focus_sash'
         ),
       ],
     },
@@ -134,7 +142,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['물', '얼음'],
           { hp: 50, attack: 95, defense: 180, spAttack: 85, spDefense: 45, speed: 70 },
           ['icicle_crash', 'hydro_pump', 'ice_shard', 'toxic'],
-          { name: '스킬링크', description: '연속 공격기의 위력을 극한으로 끌어낸다.' }
+          { name: '스킬링크', description: '연속 공격기의 위력을 극한으로 끌어낸다.' },
+          'white_herb'
         ),
         makeElitePokemon(
           'glaceon',
@@ -144,7 +153,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['얼음'],
           { hp: 65, attack: 60, defense: 110, spAttack: 130, spDefense: 95, speed: 65 },
           ['blizzard', 'shadow_ball', 'calm_mind', 'ice_beam'],
-          { name: '눈숨기', description: '눈보라 속에서 회피율을 높인다.' }
+          { name: '눈숨기', description: '눈보라 속에서 회피율을 높인다.' },
+          'choice_specs'
         ),
         makeElitePokemon(
           'mamoswine',
@@ -154,7 +164,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['얼음', '땅'],
           { hp: 110, attack: 130, defense: 80, spAttack: 70, spDefense: 60, speed: 80 },
           ['earthquake', 'icicle_crash', 'knock_off', 'stone_edge'],
-          { name: '두꺼운지방', description: '불꽃과 얼음 피해를 50% 반감한다.' }
+          { name: '두꺼운지방', description: '불꽃과 얼음 피해를 50% 반감한다.' },
+          'assault_vest'
         ),
         makeElitePokemon(
           'lapras',
@@ -164,7 +175,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['물', '얼음'],
           { hp: 130, attack: 85, defense: 80, spAttack: 85, spDefense: 95, speed: 60 },
           ['hydro_pump', 'blizzard', 'thunderbolt', 'recover'],
-          { name: '저수', description: '물 공격을 받으면 HP를 회복한다.' }
+          { name: '저수', description: '물 공격을 받으면 HP를 회복한다.' },
+          'leftovers'
         ),
       ],
     },
@@ -194,7 +206,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['악', '얼음'],
           { hp: 70, attack: 120, defense: 65, spAttack: 45, spDefense: 85, speed: 125 },
           ['knock_off', 'icicle_crash', 'ice_shard', 'swords_dance'],
-          { name: '프레셔', description: '상대의 PP 소모를 가속화한다.' }
+          { name: '프레셔', description: '상대의 PP 소모를 가속화한다.' },
+          'life_orb'
         ),
         makeElitePokemon(
           'chandelure',
@@ -204,7 +217,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['고스트', '불꽃'],
           { hp: 60, attack: 55, defense: 90, spAttack: 145, spDefense: 90, speed: 80 },
           ['shadow_ball', 'fire_blast', 'energy_ball', 'calm_mind'],
-          { name: '타오르는불꽃', description: '불꽃 공격을 무효화하고 위력을 강화한다.' }
+          { name: '타오르는불꽃', description: '불꽃 공격을 무효화하고 위력을 강화한다.' },
+          'choice_scarf'
         ),
         makeElitePokemon(
           'mimikyu',
@@ -214,7 +228,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['고스트', '페어리'],
           { hp: 55, attack: 90, defense: 80, spAttack: 50, spDefense: 105, speed: 96 },
           ['play_rough', 'shadow_claw', 'shadow_sneak', 'swords_dance'],
-          { name: '탈', description: '첫 1회의 공격 피해를 완벽히 무효화한다.' }
+          { name: '탈', description: '첫 1회의 공격 피해를 완벽히 무효화한다.' },
+          'lum_berry'
         ),
         makeElitePokemon(
           'gengar',
@@ -224,7 +239,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['고스트', '독'],
           { hp: 60, attack: 65, defense: 60, spAttack: 130, spDefense: 75, speed: 110 },
           ['shadow_ball', 'sludge_bomb', 'thunderbolt', 'dazzling_gleam'],
-          { name: '저주받은바디', description: '공격한 상대의 기술을 봉쇄한다.' }
+          { name: '저주받은바디', description: '공격한 상대의 기술을 봉쇄한다.' },
+          'focus_sash'
         ),
       ],
     },
@@ -254,7 +270,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['벌레', '불꽃'],
           { hp: 85, attack: 60, defense: 65, spAttack: 135, spDefense: 105, speed: 100 },
           ['fiery_dance', 'bug_buzz', 'quiver_dance', 'giga_drain'],
-          { name: '불꽃몸', description: '접촉한 상대에게 화상을 입힌다.' }
+          { name: '불꽃몸', description: '접촉한 상대에게 화상을 입힌다.' },
+          'sitrus_berry'
         ),
         makeElitePokemon(
           'charizard',
@@ -264,7 +281,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['불꽃', '비행'],
           { hp: 78, attack: 84, defense: 78, spAttack: 109, spDefense: 85, speed: 100 },
           ['overheat', 'air_slash', 'dragon_pulse', 'roost'],
-          { name: '맹화', description: '위급 시 불꽃 위력이 1.5배가 된다.' }
+          { name: '맹화', description: '위급 시 불꽃 위력이 1.5배가 된다.' },
+          'choice_specs'
         ),
         makeElitePokemon(
           'salamence',
@@ -274,7 +292,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['드래곤', '비행'],
           { hp: 95, attack: 135, defense: 80, spAttack: 110, spDefense: 80, speed: 100 },
           ['outrage', 'earthquake', 'dragon_dance', 'flamethrower'],
-          { name: '위협', description: '등장 시 상대의 공격을 1랭크 깎는다.' }
+          { name: '위협', description: '등장 시 상대의 공격을 1랭크 깎는다.' },
+          'lum_berry'
         ),
         makeElitePokemon(
           'dragonite',
@@ -284,7 +303,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['드래곤', '비행'],
           { hp: 91, attack: 134, defense: 95, spAttack: 100, spDefense: 100, speed: 80 },
           ['extreme_speed', 'outrage', 'earthquake', 'dragon_dance'],
-          { name: '멀티스케일', description: '만피 시 받는 피해를 50% 감소한다.' }
+          { name: '멀티스케일', description: '만피 시 받는 피해를 50% 감소한다.' },
+          'weakness_policy'
         ),
         makeElitePokemon(
           'metagross',
@@ -294,7 +314,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['강철', '에스퍼'],
           { hp: 80, attack: 135, defense: 130, spAttack: 95, spDefense: 90, speed: 70 },
           ['meteor_mash', 'zen_headbutt', 'earthquake', 'bullet_punch'],
-          { name: '클리어바디', description: '능력치가 깎이지 않는다.' }
+          { name: '클리어바디', description: '능력치가 깎이지 않는다.' },
+          'assault_vest'
         ),
         makeElitePokemon(
           'garchomp',
@@ -304,7 +325,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           ['드래곤', '땅'],
           { hp: 108, attack: 130, defense: 95, spAttack: 80, spDefense: 85, speed: 102 },
           ['earthquake', 'outrage', 'stone_edge', 'swords_dance'],
-          { name: '까칠한피부', description: '접촉한 상대에게 날카로운 반동 피해를 준다.' }
+          { name: '까칠한피부', description: '접촉한 상대에게 날카로운 반동 피해를 준다.' },
+          'life_orb'
         ),
       ],
     },
