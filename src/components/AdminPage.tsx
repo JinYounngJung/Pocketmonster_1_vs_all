@@ -686,6 +686,45 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToGame, onDataChange
               </p>
             </div>
           </div>
+
+          {/* Speed & Damage Formula Balance Explainer Card */}
+          <div className="p-4 bg-slate-950 border-2 border-yellow-400/80 shadow-[4px_4px_0px_#000] space-y-3">
+            <h3 className="text-xs font-black text-yellow-400 uppercase flex items-center gap-2">
+              <Zap className="w-4 h-4 text-yellow-400" />
+              <span>개선된 포켓몬 배틀 공식 및 실시간 스피드 판정 시스템 안내</span>
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-300">
+              <div className="p-3 bg-slate-900 border border-slate-700">
+                <div className="font-black text-white mb-1 flex items-center gap-1.5 text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  1. 실시간 스피드 선공 보장
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  스피드가 1이라도 높은 포켓몬이 반드시 먼저 공격합니다. 배틀 화면 상단에 실시간 스피드 비교 HUD가 표시됩니다.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-900 border border-slate-700">
+                <div className="font-black text-white mb-1 flex items-center gap-1.5 text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
+                  2. 사천왕 공격력 밸런스 조정
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  상대 공격 데미지를 82%(캐주얼 70%)로 적정 보정하여 억울한 원킬을 방지하고, 전략적인 카운터가 가능하도록 개선되었습니다.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-900 border border-slate-700">
+                <div className="font-black text-white mb-1 flex items-center gap-1.5 text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                  3. 기합의 버티기 & 클린 교체
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  만피 상태에서 즉사급 공격을 받아도 HP 1로 근성 버티기가 발동하며, 기절 후 새 포켓몬 투입 시 적 공격 없이 즉시 선공이 가능합니다.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

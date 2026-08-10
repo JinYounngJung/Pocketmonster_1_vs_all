@@ -17,6 +17,7 @@ import {
   selectBestAIMove,
   getEffectiveSpeed,
   getStageMultiplier,
+  determineTurnOrder,
 } from '../utils/battleEngine';
 import { sounds } from '../utils/soundEffects';
 import { getGameSettings } from '../utils/localStorageStore';
@@ -96,24 +97,28 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
     // AI selects best move
     const opponentMove = selectBestAIMove(currentOpponent, currentPlayer);
 
-    // Determine turn order
-    const playerPriority = playerMove.priority || 0;
-    const opponentPriority = opponentMove.priority || 0;
+    // Determine Turn Order via Strict Speed & Priority Engine
+    const turnOrder = determineTurnOrder(
+      currentPlayer,
+      currentOpponent,
+      playerMove,
+      opponentMove
+    );
 
-    let playerGoesFirst = true;
-    if (playerPriority !== opponentPriority) {
-      playerGoesFirst = playerPriority > opponentPriority;
-    } else {
-      const playerSpeed = getEffectiveSpeed(currentPlayer);
-      const opponentSpeed = getEffectiveSpeed(currentOpponent);
-      if (playerSpeed === opponentSpeed) {
-        playerGoesFirst = Math.random() < 0.5;
-      } else {
-        playerGoesFirst = playerSpeed > opponentSpeed;
-      }
+    // Announce speed & priority verdict in logs
+    if (turnOrder.reason === 'player_priority') {
+      addLog(`⚡ [선공기 발동] ${currentPlayer.name}의 ${playerMove.name} (우선도 +${turnOrder.playerPriority})`, 'status');
+    } else if (turnOrder.reason === 'opponent_priority') {
+      addLog(`⚡ [상대 선공기] 상대 ${currentOpponent.name}의 ${opponentMove.name} (우선도 +${turnOrder.opponentPriority})`, 'resist');
+    } else if (turnOrder.reason === 'player_speed') {
+      addLog(`🚀 [스피드 선공] ${currentPlayer.name}(스피드 ${turnOrder.playerSpeed}) > 상대(${turnOrder.opponentSpeed})`, 'normal');
+    } else if (turnOrder.reason === 'opponent_speed') {
+      addLog(`⚠️ [상대 스피드 우위] 상대 ${currentOpponent.name}(스피드 ${turnOrder.opponentSpeed}) > 내 포켓몬(${turnOrder.playerSpeed})`, 'resist');
+    } else if (turnOrder.reason === 'speed_tie') {
+      addLog(`⚖️ [동속 판정] 스피드 ${turnOrder.playerSpeed} 동률! 50% 확률 선공 추첨`, 'normal');
     }
 
-    const firstAttacker = playerGoesFirst ? 'player' : 'opponent';
+    const firstAttacker = turnOrder.firstAttacker;
 
     // Execute First Attack
     if (firstAttacker === 'player') {
@@ -336,8 +341,11 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       return { attacker: currentAttacker, defender: currentDefender };
     }
 
-    // Damage Calculation
-    const dmgResult = calculateDamage(currentAttacker, currentDefender, move);
+    // Damage Calculation with Difficulty Balancing
+    const dmgResult = calculateDamage(currentAttacker, currentDefender, move, {
+      isAttackerPlayer: side === 'player',
+      difficulty: settings.difficulty,
+    });
 
     // Check Disguise (탈) on Mimikyu
     if (
@@ -371,8 +379,24 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       sounds.playHit();
     }
 
-    // Apply Damage
-    currentDefender.currentHp = Math.max(0, currentDefender.currentHp - dmgResult.damage);
+    // Focus Endure Mechanic (기합의 버티기):
+    // If player is at 100% full HP and would take a fatal 1-shot OHKO, survive with 1 HP (Casual / Normal mode)
+    const wasDefenderFullHp = currentDefender.currentHp >= currentDefender.stats.hp;
+    let finalDamage = dmgResult.damage;
+
+    if (
+      side === 'opponent' &&
+      wasDefenderFullHp &&
+      finalDamage >= currentDefender.currentHp &&
+      settings.difficulty !== 'hardcore'
+    ) {
+      currentDefender.currentHp = 1;
+      setCurrentMessage(`${defenderName}은(는) 트레이너를 향한 근성으로 버텨냈다! (HP 1 남음)`);
+      addLog(`✨ ${defenderName} 기합으로 버팀! (HP 1)`, 'heal');
+    } else {
+      // Standard Damage Application
+      currentDefender.currentHp = Math.max(0, currentDefender.currentHp - finalDamage);
+    }
 
     // Announce Effectiveness / Crit
     if (dmgResult.isCrit) {
@@ -507,20 +531,29 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   const handleSwitchPokemon = async (targetIndex: number) => {
     if (targetIndex === activePlayerIdx || playerParty[targetIndex].currentHp <= 0) return;
 
+    const isSwitchAfterFaint = activePlayer.currentHp <= 0;
+
     setIsSwitchModalOpen(false);
     setIsProcessingTurn(true);
 
     const incoming = playerParty[targetIndex];
     sounds.playClick();
-    setCurrentMessage(`돌아와, ${activePlayer.name}! 가라, ${incoming.name}!`);
-    addLog(`포켓몬 교체: ${activePlayer.name} ➜ ${incoming.name}`, 'switch');
+
+    if (isSwitchAfterFaint) {
+      setCurrentMessage(`가라! ${incoming.name}!`);
+      addLog(`포켓몬 투입: ${incoming.name}`, 'switch');
+    } else {
+      setCurrentMessage(`돌아와, ${activePlayer.name}! 가라, ${incoming.name}!`);
+      addLog(`포켓몬 교체: ${activePlayer.name} ➜ ${incoming.name}`, 'switch');
+    }
+
     setActivePlayerIdx(targetIndex);
     setPlayerAnim('idle');
 
-    await sleep(900);
+    await sleep(700);
 
-    // If opponent is still conscious, opponent gets a free attack on switch-in!
-    if (activeOpponent.currentHp > 0) {
+    // If voluntary switch during live battle (not after a faint), opponent gets an attack on switch-in
+    if (!isSwitchAfterFaint && activeOpponent.currentHp > 0) {
       let currentOpponent = { ...activeOpponent };
       let newActivePlayer = { ...incoming };
 
@@ -547,6 +580,9 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       } else {
         setCurrentMessage('어떤 행동을 취하시겠습니까?');
       }
+    } else {
+      // Free Entry after faint
+      setCurrentMessage(`${incoming.name}, 어떤 행동을 취하시겠습니까?`);
     }
 
     setIsProcessingTurn(false);

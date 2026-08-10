@@ -73,7 +73,7 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           'Hariyama',
           ['격투'],
           { hp: 144, attack: 120, defense: 60, spAttack: 40, spDefense: 60, speed: 50 },
-          ['close_combat', 'knock_off', 'earthquake', 'bullet_punch'],
+          ['close_combat', 'knock_off', 'earthquake', 'stone_edge'],
           { name: '두꺼운지방', description: '불꽃과 얼음 기술의 피해를 절반으로 줄인다.' }
         ),
         makeElitePokemon(
@@ -83,7 +83,7 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           'Machamp',
           ['격투'],
           { hp: 90, attack: 130, defense: 80, spAttack: 65, spDefense: 85, speed: 55 },
-          ['dynamic_punch', 'stone_edge', 'poison_jab', 'bullet_punch'],
+          ['dynamic_punch', 'stone_edge', 'poison_jab', 'earthquake'],
           { name: '노가드', description: '자신과 상대의 모든 기술이 필중한다.' }
         ),
         makeElitePokemon(
@@ -93,28 +93,18 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           'Rhyperior',
           ['땅', '바위'],
           { hp: 115, attack: 140, defense: 130, spAttack: 55, spDefense: 55, speed: 40 },
-          ['earthquake', 'stone_edge', 'ice_shard', 'swords_dance'],
+          ['earthquake', 'stone_edge', 'swords_dance', 'flamethrower'],
           { name: '하드록', description: '약점 공격으로 받는 피해를 25% 경감한다.' }
         ),
         makeElitePokemon(
           'lucario',
           448,
-          '루카리오',
+          '루카리오 (에이스)',
           'Lucario',
           ['격투', '강철'],
           { hp: 70, attack: 110, defense: 70, spAttack: 115, spDefense: 70, speed: 90 },
           ['aura_sphere', 'flash_cannon', 'bullet_punch', 'nasty_plot'],
           { name: '불굴의마음', description: '기세로 상대를 제압한다.' }
-        ),
-        makeElitePokemon(
-          'tyranitar',
-          248,
-          '마기라스 (에이스)',
-          'Tyranitar',
-          ['바위', '악'],
-          { hp: 100, attack: 134, defense: 110, spAttack: 95, spDefense: 100, speed: 61 },
-          ['stone_edge', 'crunch', 'earthquake', 'dragon_dance'],
-          { name: '모래날림', description: '모래바람으로 바위 타입 특방을 50% 상승시킨다.' }
         ),
       ],
     },
@@ -163,18 +153,8 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           'Mamoswine',
           ['얼음', '땅'],
           { hp: 110, attack: 130, defense: 80, spAttack: 70, spDefense: 60, speed: 80 },
-          ['earthquake', 'icicle_crash', 'ice_shard', 'knock_off'],
+          ['earthquake', 'icicle_crash', 'knock_off', 'stone_edge'],
           { name: '두꺼운지방', description: '불꽃과 얼음 피해를 50% 반감한다.' }
-        ),
-        makeElitePokemon(
-          'azumarill',
-          184,
-          '마릴리',
-          'Azumarill',
-          ['물', '페어리'],
-          { hp: 100, attack: 50, defense: 80, spAttack: 60, spDefense: 80, speed: 50 },
-          ['play_rough', 'waterfall', 'aqua_jet', 'superpower'].map(k => k === 'superpower' ? 'close_combat' : k),
-          { name: '천하장사', description: '물리 공격력이 2배로 폭증한다.' }
         ),
         makeElitePokemon(
           'lapras',
@@ -235,16 +215,6 @@ export function getEliteFourMasters(): EliteFourMaster[] {
           { hp: 55, attack: 90, defense: 80, spAttack: 50, spDefense: 105, speed: 96 },
           ['play_rough', 'shadow_claw', 'shadow_sneak', 'swords_dance'],
           { name: '탈', description: '첫 1회의 공격 피해를 완벽히 무효화한다.' }
-        ),
-        makeElitePokemon(
-          'hydreigon',
-          635,
-          '삼삼드래',
-          'Hydreigon',
-          ['악', '드래곤'],
-          { hp: 92, attack: 105, defense: 90, spAttack: 125, spDefense: 90, speed: 98 },
-          ['dark_pulse', 'draco_meteor', 'flamethrower', 'nasty_plot'],
-          { name: '부유', description: '땅 타입 공격을 일절 받지 않는다.' }
         ),
         makeElitePokemon(
           'gengar',

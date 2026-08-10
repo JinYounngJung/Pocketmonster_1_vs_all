@@ -2,7 +2,8 @@ import React from 'react';
 import { PokemonData, Move } from '../types/pokemon';
 import { TypeBadge } from './TypeBadge';
 import { getTypeEffectiveness } from '../data/typeChart';
-import { Swords, RefreshCw, Sparkles, BookOpen, Zap } from 'lucide-react';
+import { getEffectiveSpeed } from '../utils/battleEngine';
+import { RefreshCw, Sparkles, BookOpen, Zap, Gauge, ArrowUpRight, ArrowDownRight, Equal } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
 interface BattleControlsProps {
@@ -24,8 +25,76 @@ export const BattleControls: React.FC<BattleControlsProps> = ({
   onOpenOakChat,
   onOpenTypeChart,
 }) => {
+  const playerSpeed = getEffectiveSpeed(playerPokemon);
+  const opponentSpeed = getEffectiveSpeed(opponentPokemon);
+  const speedDiff = playerSpeed - opponentSpeed;
+  const isPlayerFaster = speedDiff > 0;
+  const isOpponentFaster = speedDiff < 0;
+  const isSpeedTied = speedDiff === 0;
+
   return (
-    <div id="battle-controls-container" className="w-full space-y-3">
+    <div id="battle-controls-container" className="w-full space-y-2.5">
+      {/* Real-time Speed & Turn Priority Matchup Bar */}
+      <div
+        id="speed-turn-priority-hud"
+        className={`px-3 py-1.5 border-2 border-black shadow-[3px_3px_0px_#000] flex flex-wrap items-center justify-between gap-2 text-xs font-mono ${
+          isPlayerFaster
+            ? 'bg-emerald-950/80 border-emerald-500/80 text-emerald-200'
+            : isOpponentFaster
+            ? 'bg-amber-950/80 border-amber-500/80 text-amber-200'
+            : 'bg-slate-900 border-slate-600 text-slate-200'
+        }`}
+      >
+        <div className="flex items-center gap-2 font-black">
+          <Gauge className="w-4 h-4 text-yellow-400 shrink-0" />
+          <span className="text-[11px] sm:text-xs text-white">
+            스피드 판정:
+          </span>
+          <span className="font-bold">
+            아군 <strong className="text-white font-black">{playerSpeed}</strong>
+            {playerPokemon.statStages.speed !== 0 && (
+              <span className="text-[10px] ml-1 text-emerald-400">
+                ({playerPokemon.statStages.speed > 0 ? `+${playerPokemon.statStages.speed}` : playerPokemon.statStages.speed}랭크)
+              </span>
+            )}
+            {playerPokemon.status === 'paralysis' && (
+              <span className="text-[10px] ml-1 text-amber-400">(마비 50%)</span>
+            )}
+          </span>
+          <span className="text-slate-400">vs</span>
+          <span className="font-bold">
+            상대 <strong className="text-white font-black">{opponentSpeed}</strong>
+            {opponentPokemon.statStages.speed !== 0 && (
+              <span className="text-[10px] ml-1 text-yellow-400">
+                ({opponentPokemon.statStages.speed > 0 ? `+${opponentPokemon.statStages.speed}` : opponentPokemon.statStages.speed}랭크)
+              </span>
+            )}
+          </span>
+        </div>
+
+        {/* Dynamic Status Badge */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          {isPlayerFaster && (
+            <span className="px-2 py-0.5 bg-emerald-500 text-black font-black text-[10px] sm:text-xs border border-black uppercase tracking-tight flex items-center gap-1 shadow-[1px_1px_0px_#000]">
+              <ArrowUpRight className="w-3.5 h-3.5" />
+              선공 우위 (+{speedDiff})
+            </span>
+          )}
+          {isOpponentFaster && (
+            <span className="px-2 py-0.5 bg-amber-500 text-black font-black text-[10px] sm:text-xs border border-black uppercase tracking-tight flex items-center gap-1 shadow-[1px_1px_0px_#000]">
+              <ArrowDownRight className="w-3.5 h-3.5" />
+              상대 선공 (열세 {speedDiff})
+            </span>
+          )}
+          {isSpeedTied && (
+            <span className="px-2 py-0.5 bg-slate-300 text-black font-black text-[10px] sm:text-xs border border-black uppercase tracking-tight flex items-center gap-1 shadow-[1px_1px_0px_#000]">
+              <Equal className="w-3.5 h-3.5" />
+              동속 판정 (50%)
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* 4 Moves Action Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {playerPokemon.moves.map((move) => {
@@ -34,6 +103,7 @@ export const BattleControls: React.FC<BattleControlsProps> = ({
           const isResist = mult < 1 && mult > 0;
           const isImmune = mult === 0;
           const isOutOfPp = move.pp <= 0;
+          const hasPriority = (move.priority || 0) > 0;
 
           return (
             <button
@@ -50,15 +120,18 @@ export const BattleControls: React.FC<BattleControlsProps> = ({
                   : isProcessingTurn
                   ? 'bg-slate-900 border-slate-700 text-slate-500 cursor-wait'
                   : isSuper
-                  ? 'bg-amber-950 border-4 border-yellow-400 hover:bg-amber-900'
+                  ? 'bg-amber-950 border-2 border-yellow-400 hover:bg-amber-900'
                   : 'bg-slate-900 hover:bg-slate-800'
               }`}
             >
               {/* Top Row: Name + Type Badge + Category */}
               <div className="flex items-center justify-between w-full mb-1">
                 <span className="font-black text-sm text-white uppercase tracking-tight flex items-center gap-1.5">
-                  {move.priority && move.priority > 0 && (
-                    <Zap className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" title="선제 공격기" />
+                  {hasPriority && (
+                    <span className="px-1.5 py-0.2 bg-yellow-400 text-slate-950 font-black text-[9px] border border-black uppercase flex items-center gap-0.5 shadow-[1px_1px_0px_#000]">
+                      <Zap className="w-2.5 h-2.5 fill-slate-950" />
+                      선공기 +{move.priority}
+                    </span>
                   )}
                   {move.name}
                 </span>

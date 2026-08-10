@@ -32,7 +32,11 @@ export interface DamageResult {
 export function calculateDamage(
   attacker: PokemonData,
   defender: PokemonData,
-  move: Move
+  move: Move,
+  options?: {
+    isAttackerPlayer?: boolean;
+    difficulty?: 'casual' | 'normal' | 'hardcore';
+  }
 ): DamageResult {
   if (move.category === 'status' || move.power === 0) {
     return {
@@ -59,13 +63,7 @@ export function calculateDamage(
     };
   }
 
-  // Mimikyu Disguise Check
-  if (defender.dexNumber === 778 && defender.ability.name === '탈' && !defender.fainted) {
-    // Only block once per match
-    // Handled in battle flow
-  }
-
-  // STAB
+  // STAB (Same-Type Attack Bonus)
   const isStab = attacker.types.includes(move.type);
   const stabMultiplier = isStab ? 1.5 : 1.0;
 
@@ -115,8 +113,39 @@ export function calculateDamage(
 
   const randomMultiplier = 0.85 + Math.random() * 0.15;
 
+  // Difficulty & Fairness balance scaling
+  const difficulty = options?.difficulty || 'normal';
+  const isPlayer = options?.isAttackerPlayer ?? true;
+
+  let balanceMultiplier = 1.0;
+  if (!isPlayer) {
+    // Opponent damage tuning: prevents sudden unfair 1-shot wipes on standard hits
+    if (difficulty === 'casual') {
+      balanceMultiplier = 0.70;
+    } else if (difficulty === 'normal') {
+      balanceMultiplier = 0.82;
+    } else {
+      balanceMultiplier = 1.0; // Hardcore
+    }
+  } else {
+    // Player damage scaling
+    if (difficulty === 'casual') {
+      balanceMultiplier = 1.20;
+    } else if (difficulty === 'normal') {
+      balanceMultiplier = 1.05;
+    } else {
+      balanceMultiplier = 1.0;
+    }
+  }
+
   let totalDamage = Math.floor(
-    baseDamage * stabMultiplier * typeEffectiveness * critMultiplier * randomMultiplier * abilityDefMultiplier
+    baseDamage *
+      stabMultiplier *
+      typeEffectiveness *
+      critMultiplier *
+      randomMultiplier *
+      abilityDefMultiplier *
+      balanceMultiplier
   );
 
   totalDamage = Math.max(1, totalDamage);
@@ -128,6 +157,89 @@ export function calculateDamage(
     isImmune: false,
     isSuperEffective: typeEffectiveness > 1,
     isNotVeryEffective: typeEffectiveness < 1 && typeEffectiveness > 0,
+  };
+}
+
+export type TurnOrderReason =
+  | 'player_priority'
+  | 'opponent_priority'
+  | 'player_speed'
+  | 'opponent_speed'
+  | 'speed_tie';
+
+export interface TurnOrderResult {
+  firstAttacker: 'player' | 'opponent';
+  reason: TurnOrderReason;
+  playerSpeed: number;
+  opponentSpeed: number;
+  playerPriority: number;
+  opponentPriority: number;
+}
+
+export function determineTurnOrder(
+  player: PokemonData,
+  opponent: PokemonData,
+  playerMove: Move,
+  opponentMove: Move
+): TurnOrderResult {
+  const playerPriority = playerMove.priority || 0;
+  const opponentPriority = opponentMove.priority || 0;
+  const playerSpeed = getEffectiveSpeed(player);
+  const opponentSpeed = getEffectiveSpeed(opponent);
+
+  // 1. Move Priority has absolute top precedence
+  if (playerPriority !== opponentPriority) {
+    if (playerPriority > opponentPriority) {
+      return {
+        firstAttacker: 'player',
+        reason: 'player_priority',
+        playerSpeed,
+        opponentSpeed,
+        playerPriority,
+        opponentPriority,
+      };
+    } else {
+      return {
+        firstAttacker: 'opponent',
+        reason: 'opponent_priority',
+        playerSpeed,
+        opponentSpeed,
+        playerPriority,
+        opponentPriority,
+      };
+    }
+  }
+
+  // 2. Strict Effective Speed comparison (Higher Speed moves FIRST)
+  if (playerSpeed > opponentSpeed) {
+    return {
+      firstAttacker: 'player',
+      reason: 'player_speed',
+      playerSpeed,
+      opponentSpeed,
+      playerPriority,
+      opponentPriority,
+    };
+  } else if (opponentSpeed > playerSpeed) {
+    return {
+      firstAttacker: 'opponent',
+      reason: 'opponent_speed',
+      playerSpeed,
+      opponentSpeed,
+      playerPriority,
+      opponentPriority,
+    };
+  }
+
+  // 3. Exact Speed Tie (50% coin flip)
+  const isPlayerFirst = Math.random() < 0.5;
+  return {
+    firstAttacker: isPlayerFirst ? 'player' : 'opponent',
+    reason: 'speed_tie',
+    playerSpeed,
+    opponentSpeed,
+    playerPriority,
+    opponentPriority,
   };
 }
 
