@@ -1,0 +1,6 @@
+{
+  "name": "포켓몬 사천왕 도장깨기 배틀",
+  "description": "Lv.50 포켓몬 6마리로 전략적인 파티를 구성해 상성을 활용하여 4명의 사천왕을 연파하는 턴제 배틀 도장깨기 게임 (AI 배틀 코치 지원)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
