@@ -54,6 +54,11 @@ export const PokemonDetailModal: React.FC<PokemonDetailModalProps> = ({ pokemon,
             <h2 className="text-xl font-black text-white uppercase flex items-center gap-2">
               {pokemon.name}
               <span className="text-xs font-bold text-slate-400">({pokemon.nameEn})</span>
+              {pokemon.isLegendary && (
+                <span className="text-[10px] font-black px-2 py-0.5 bg-amber-400 text-black border border-black uppercase shadow-[1px_1px_0px_#000]">
+                  👑 전설/환상
+                </span>
+              )}
             </h2>
             <div className="flex items-center gap-1.5 ml-2">
               {pokemon.types.map((type) => (

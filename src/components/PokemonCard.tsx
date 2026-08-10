@@ -27,6 +27,8 @@ export const PokemonCard: React.FC<PokemonCardProps> = ({
       className={`group relative border-2 border-black transition-all duration-150 flex flex-col justify-between overflow-hidden ${
         isSelected
           ? 'bg-amber-50 border-4 border-black shadow-[6px_6px_0px_#000] scale-[1.02]'
+          : pokemon.isLegendary
+          ? 'bg-amber-50/50 hover:bg-amber-100/60 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#d97706]'
           : 'bg-white hover:bg-slate-50 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000]'
       }`}
     >
@@ -40,9 +42,16 @@ export const PokemonCard: React.FC<PokemonCardProps> = ({
 
       {/* Dex Number & Detail Button */}
       <div className="flex items-center justify-between p-2.5 pb-0">
-        <span className="text-[10px] font-mono font-black text-black bg-slate-200 border border-black px-1.5 py-0.2 uppercase shadow-[1px_1px_0px_#000]">
-          No.{String(pokemon.dexNumber).padStart(3, '0')}
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] font-mono font-black text-black bg-slate-200 border border-black px-1.5 py-0.2 uppercase shadow-[1px_1px_0px_#000]">
+            No.{String(pokemon.dexNumber).padStart(3, '0')}
+          </span>
+          {pokemon.isLegendary && (
+            <span className="text-[9px] font-black px-1.5 py-0.2 bg-amber-400 border border-black text-black uppercase shadow-[1px_1px_0px_#000]">
+              👑 전설
+            </span>
+          )}
+        </div>
         <button
           id={`btn-detail-${pokemon.id}`}
           onClick={(e) => {

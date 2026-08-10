@@ -44,6 +44,7 @@ export interface RawPokemonCustomDef {
   moveKeys: string[];
   ability: { name: string; description: string };
   isCustom?: boolean;
+  isLegendary?: boolean;
 }
 
 const DEFAULT_SETTINGS: GameSettings = {
@@ -154,6 +155,7 @@ export function getPlayablePokemonList(): PokemonData[] {
       officialArtwork: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${raw.dexNumber}.png`,
       status: 'none',
       statusTurns: 0,
+      isLegendary: raw.isLegendary,
       statStages: {
         attack: 0,
         defense: 0,

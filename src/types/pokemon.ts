@@ -91,6 +91,7 @@ export interface PokemonData {
   statStages: StatStages;
   item?: string;
   fainted?: boolean;
+  isLegendary?: boolean;
 }
 
 export interface EliteFourMaster {

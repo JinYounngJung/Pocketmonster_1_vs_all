@@ -50,7 +50,7 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<PokemonType | '전체'>('전체');
-  const [selectedGen, setSelectedGen] = useState<'all' | 'gen4' | 'gen1_3' | 'gen5_8'>('all');
+  const [selectedGen, setSelectedGen] = useState<'all' | 'legendary' | 'gen4' | 'gen1_3' | 'gen5_8'>('all');
 
   // All playable pokemon from local persistence
   const allPokemonPool = useMemo(() => {
@@ -67,7 +67,9 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
         selectedType === '전체' || pokemon.types.includes(selectedType);
 
       let matchesGen = true;
-      if (selectedGen === 'gen4') {
+      if (selectedGen === 'legendary') {
+        matchesGen = !!pokemon.isLegendary;
+      } else if (selectedGen === 'gen4') {
         matchesGen = pokemon.dexNumber >= 387 && pokemon.dexNumber <= 493;
       } else if (selectedGen === 'gen1_3') {
         matchesGen = pokemon.dexNumber <= 386;
@@ -96,7 +98,10 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
   const handleApplyPreset = (presetName: string) => {
     sounds.playClick();
     let ids: string[] = [];
-    if (presetName === 'sinnoh_allstar') {
+    if (presetName === 'legendary') {
+      // Legendary and Mythical Gods
+      ids = ['mewtwo', 'rayquaza', 'dialga', 'kyogre', 'zacian', 'arceus'];
+    } else if (presetName === 'sinnoh_allstar') {
       // 4th Generation Sinnoh Champions
       ids = ['infernape', 'empoleon', 'torterra', 'garchomp', 'lucario', 'roserade'];
     } else if (presetName === 'balance') {
@@ -160,11 +165,18 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
             <div className="flex flex-wrap items-center gap-2 pt-2">
               <span className="text-xs text-yellow-400 font-black uppercase mr-1">빠른 추천 파티:</span>
               <button
+                id="btn-preset-legendary"
+                onClick={() => handleApplyPreset('legendary')}
+                className="geo-btn px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-xs font-black uppercase text-black cursor-pointer shadow-[3px_3px_0px_#000] border-2 border-black"
+              >
+                👑 전설의 신화
+              </button>
+              <button
                 id="btn-preset-sinnoh"
                 onClick={() => handleApplyPreset('sinnoh_allstar')}
                 className="geo-btn px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-xs font-black uppercase text-black cursor-pointer shadow-[3px_3px_0px_#000]"
               >
-                ⭐ 4세대 신오 올스타
+                ⭐ 4세대 신오
               </button>
               <button
                 id="btn-preset-balance"
@@ -422,7 +434,7 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
 
         {/* Generation Filter Tabs */}
         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200">
-          <span className="text-xs font-black text-slate-700 uppercase">세대 선택:</span>
+          <span className="text-xs font-black text-slate-700 uppercase">분류 필터:</span>
           <button
             onClick={() => {
               sounds.playClick();
@@ -434,7 +446,20 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
                 : 'bg-white hover:bg-slate-100 text-black'
             }`}
           >
-            전체 세대 (61마리)
+            전체 도감 (100마리)
+          </button>
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setSelectedGen('legendary');
+            }}
+            className={`px-2.5 py-1 text-xs font-black uppercase border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer transition-all ${
+              selectedGen === 'legendary'
+                ? 'bg-amber-400 text-black font-extrabold scale-105 shadow-[3px_3px_0px_#000]'
+                : 'bg-amber-100 hover:bg-amber-200 text-black'
+            }`}
+          >
+            👑 전설/환상 포켓몬
           </button>
           <button
             onClick={() => {
@@ -444,10 +469,10 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
             className={`px-2.5 py-1 text-xs font-black uppercase border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer transition-all ${
               selectedGen === 'gen4'
                 ? 'bg-yellow-400 text-black font-extrabold scale-105'
-                : 'bg-amber-100 hover:bg-amber-200 text-black'
+                : 'bg-white hover:bg-slate-100 text-black'
             }`}
           >
-            ⭐ 4세대 신오 (신규 31마리)
+            ⭐ 4세대 신오
           </button>
           <button
             onClick={() => {
@@ -473,7 +498,7 @@ export const PartyBuilder: React.FC<PartyBuilderProps> = ({
                 : 'bg-white hover:bg-slate-100 text-black'
             }`}
           >
-            5~8세대
+            5~9세대
           </button>
         </div>
 
